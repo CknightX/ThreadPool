@@ -28,24 +28,51 @@ public:
 	{
 		is_running.store(false);
 	}
-	void append(Task task)
+	template<class Func,class... Args>
+	auto append(Func&& f,Args&&... args)->std::future<decltype(f(args...))>
 	{
-		std::unique_lock<std::mutex> lck(mtx);
-		tasks.push(task); 
+		if (!is_running.load())
+			throw std::runtime_error("ThreadPool is not running now.");
+		using RetType = decltype(f(args...));
+
+		auto task = std::make_shared<std::packaged_task<RetType()>>(
+			std::bind(std::forward<Func>(f), std::forward<Args>(args)...)
+		);
+
+		std::future<RetType> res = task->get_future();
+
+		{
+			std::unique_lock<std::mutex> lck(mtx);
+			tasks.emplace([task]() {(*task)(); });
+		}
+
 		cv.notify_one();
+		return res;
+
 	}
 	~ThreadPool()
 	{
+		stop();
+		// wake up all
+		cv.notify_all();
 
-		for (auto& td : pool) // detach all
-			td.detach(); 
+		// join all threads
+		for (auto& t : pool)
+			t.join();
 	}
 private:
 	// get one task.
 	Task get_task() 
 	{
 		std::unique_lock<std::mutex> lck(mtx);
-		cv.wait(lck, [this] {return !tasks.empty(); });
+	//	cv.wait(lck, [this] {return !tasks.empty(); });
+		while (tasks.empty() && is_running)
+			cv.wait(lck);
+
+		// ~ThreadPool()
+		if (tasks.empty() && !is_running)
+			return nullptr;
+
 		auto task = tasks.front();
 		tasks.pop();
 		return task;
@@ -57,10 +84,9 @@ private:
 		{
 			auto task = std::move(get_task());
 			if (!task)
-				continue;
+				return;
 			task();
 		}
-
 
 	}
 private:

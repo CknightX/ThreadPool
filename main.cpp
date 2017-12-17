@@ -9,12 +9,18 @@ void f(int i) { cout << i<<' '; }
 int main()
 {
 	ThreadPool<> pool;
-	int i = 10000;
 	pool.run();
-	while (i-- > 0)
-	{
-		pool.append(std::bind(f,i));
-	}
+
+	auto a=pool.append(f, 2);
+	auto b=pool.append(f, 3);
+	auto c=pool.append(f, 4);
+
+	a.get();
+	b.get();
+	c.get();
+
+
+
 
 	std::this_thread::sleep_for(std::chrono::seconds(5));
 }
