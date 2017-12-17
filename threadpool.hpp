@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <queue>
+#include <array>
 
 
 using Task = std::function<void()>;
@@ -15,14 +16,10 @@ class ThreadPool
 {
 public:
 	ThreadPool() 
-		:is_running(false)
+		:is_running(true)
 	{
 		for (size_t i = 0; i < thread_num; ++i)
-			pool.emplace_back(&ThreadPool::work,this);
-	}
-	void run()
-	{
-		is_running.store(true);
+			pool.at(i) = std::thread(&ThreadPool::work, this);
 	}
 	void stop()
 	{
@@ -91,7 +88,7 @@ private:
 	}
 private:
 	// thread pool
-	std::vector<std::thread> pool; 
+	std::array<std::thread,thread_num> pool;
 	// task queue
 	std::queue<Task> tasks;
 

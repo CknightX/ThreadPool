@@ -8,19 +8,13 @@ using namespace std;
 void f(int i) { cout << i<<' '; }
 int main()
 {
-	ThreadPool<> pool;
-	pool.run();
+	ThreadPool<20> pool;
+	vector<future<void>> tasks;
 
-	auto a=pool.append(f, 2);
-	auto b=pool.append(f, 3);
-	auto c=pool.append(f, 4);
+	for (int i = 0; i < 10000; ++i)
+		tasks.emplace_back(pool.append(f, i));
+	for (auto& task : tasks)
+		task.get();
 
-	a.get();
-	b.get();
-	c.get();
-
-
-
-
-	std::this_thread::sleep_for(std::chrono::seconds(5));
+	std::this_thread::sleep_for(std::chrono::seconds(2));
 }
